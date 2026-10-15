@@ -1,0 +1,174 @@
+# RenderVideo
+
+RenderVideo chuyển truyện thành video gồm hình ảnh, giọng kể tiếng Việt, phụ đề và âm thanh.
+
+## Quyết định hiện tại
+
+```text
+Ollama       → phân tích truyện và tạo storyboard
+ComfyUI/Gemini → tạo ảnh nhân vật và ảnh cảnh
+ViViBe API   → tạo audio và SRT bên ngoài máy
+FFmpeg       → pan/zoom, ghép timeline và xuất MP4
+Wan2.2       → image-to-video, chỉ triển khai sau MVP
+```
+
+Mọi project dùng hình ảnh hoạt hình 2D vẽ tay và lời kể tiếng Việt. Hai giá trị này được backend áp dụng cố định; giao diện không cho chuyển sang phong cách ảnh thật hoặc ngôn ngữ khác.
+
+> **Chính sách local:** mọi source, model, package cache, file tạm và output được tải trong quá trình phát triển phải nằm trong thư mục dự án này. Không cài hoặc tải ra ngoài project khi chưa được chấp thuận.
+
+## Chạy ứng dụng
+
+Backend dùng cổng `9000`; giao diện Python dùng cổng `9001`.
+
+Lần đầu tiên, đồng bộ môi trường:
+
+```bash
+./scripts/setup_backend.sh
+```
+
+Chạy API và giao diện cùng lúc, có tự reload:
+
+```bash
+./scripts/dev_all.sh
+```
+
+Hoặc chạy riêng trong hai terminal:
+
+```bash
+./scripts/dev.sh
+./scripts/dev_frontend.sh
+```
+
+Truy cập:
+
+- Giao diện: `http://127.0.0.1:9001`
+- Swagger: `http://127.0.0.1:9000/docs`
+- Backend health: `http://127.0.0.1:9000/health`
+- Frontend health: `http://127.0.0.1:9001/health`
+
+## Chạy Ollama phân tích truyện
+
+Cài local một lần:
+
+```bash
+./scripts/setup_ollama.sh
+```
+
+Khởi động Ollama ở terminal riêng:
+
+```bash
+./scripts/run_ollama.sh
+```
+
+Tải model storyboard:
+
+```bash
+./scripts/pull_story_model.sh
+```
+
+Toàn bộ binary và model được lưu trong `tools/`, `downloads/` và `models/` của project.
+
+## Tạo ảnh bằng ComfyUI hoặc Gemini
+
+ComfyUI chạy local. Cài ComfyUI `v0.40.0`, môi trường Python riêng và checkpoint Stable Diffusion 1.5 vào project:
+
+```bash
+./scripts/setup_comfyui.sh
+```
+
+Khởi động ở terminal riêng:
+
+```bash
+./scripts/run_comfyui.sh
+```
+
+ComfyUI dùng `http://127.0.0.1:8188`. Launcher tự dùng GPU khi NVIDIA runtime hoạt động; nếu không, nó chuyển sang CPU chậm hơn. Khi backend tạo ảnh bằng ComfyUI, model Ollama được dỡ khỏi bộ nhớ trước và model ComfyUI được giải phóng sau khi hoàn thành.
+
+Gemini chạy qua API từ backend. Chọn **Gemini keys** trên thanh đầu trang, nhập một hoặc nhiều key — mỗi dòng một key — rồi chọn **Gemini API** tại mục **Nguồn tạo ảnh**. Key chỉ được giữ trong RAM của backend, không được trả lại giao diện và cần nhập lại sau khi backend khởi động lại. `GEMINI_API_KEY` trong `.env` vẫn là cấu hình dự phòng tùy chọn.
+
+## Tài liệu
+
+Đọc theo thứ tự:
+
+| Bước | Tài liệu | Nội dung |
+|---:|---|---|
+| 0 | [Tổng quan](docs/00-tong-quan.md) | Mục tiêu, luồng xử lý và phạm vi MVP |
+| 1 | [Thư mục và cài đặt](docs/01-thu-muc-va-cai-dat.md) | Chính sách tải local, cache, model và dependency |
+| 2 | [Kiến trúc](docs/02-kien-truc.md) | Dịch vụ, queue, trạng thái và dữ liệu |
+| 3 | [Storyboard với Ollama](docs/03-storyboard-ollama.md) | Character Bible, schema và test phân tích truyện |
+| 4 | [Hình ảnh với ComfyUI và Gemini](docs/04-hinh-anh-comfyui.md) | Chọn provider, workflow local, Gemini API và test tạo ảnh |
+| 5 | [Giọng nói với ViViBe](docs/05-giong-noi-vivibe.md) | Gửi job, polling, tải audio/SRT và kiểm soát credit |
+| 6 | [Dựng video với FFmpeg](docs/06-dung-video-ffmpeg.md) | Timeline, đồng bộ và test video |
+| 7 | [Video với Wan2.2](docs/07-video-wan22.md) | Image-to-video tùy chọn sau MVP |
+| 8 | [Kế hoạch test](docs/08-ke-hoach-test.md) | Các bước triển khai có artifact kiểm chứng |
+| 9 | [Vận hành và rủi ro](docs/09-van-hanh.md) | Retry, GPU, secret, chi phí và giấy phép |
+| 10 | [API quản lý project](docs/10-api-projects.md) | SQLite, migration và API CRUD project |
+| 11 | [Kiến trúc mở rộng](docs/11-kien-truc-mo-rong.md) | Ranh giới engine, workflow, provider, channel và renderer |
+| 12 | [Mục tiêu MVP](docs/12-mvp.md) | Tiêu chí hoàn thành từ truyện đến MP4 |
+| 13 | [Giao diện Python](docs/13-giao-dien.md) | UI cổng 9001 và các thao tác hiện có |
+
+## Thứ tự triển khai
+
+### Mốc A — Chứng minh pipeline nhẹ
+
+1. FastAPI health endpoint.
+2. Project và storyboard schema.
+3. Ollama tạo storyboard JSON.
+4. ViViBe tạo một audio ngắn và SRT.
+5. FFmpeg ghép một ảnh + audio + phụ đề thành MP4.
+
+Kết quả cần quan sát:
+
+```text
+data/projects/test-render/renders/preview.mp4
+```
+
+### Mốc B — Tích hợp hình ảnh
+
+1. Cài ComfyUI và model vào thư mục local của project.
+2. Tạo ảnh nhân vật.
+3. Duyệt ảnh tham chiếu.
+4. Tạo ảnh cảnh.
+5. Render truyện ba cảnh.
+
+Mốc này là MVP kỹ thuật.
+
+### Mốc C — Hoàn thiện sản phẩm
+
+1. UI nhập truyện và duyệt storyboard.
+2. UI duyệt/tạo lại tài nguyên.
+3. Theo dõi trạng thái job.
+4. Preview và tải video.
+5. Bổ sung Wan2.2 nếu phần cứng đáp ứng.
+
+## Cấu trúc lưu trữ local
+
+```text
+RenderVideo/
+├── .cache/
+├── .runtime/
+├── .venv/
+├── .venv-comfyui/
+├── data/projects/
+├── downloads/
+├── models/
+├── third_party/
+├── tools/
+├── workflows/
+├── backend/
+├── frontend/
+└── docs/
+```
+
+Chi tiết và biến môi trường: [docs/01-thu-muc-va-cai-dat.md](docs/01-thu-muc-va-cai-dat.md).
+
+## Điều kiện trước khi chuyển bước
+
+- Có artifact quan sát được từ bước vừa làm.
+- Đã chạy đúng đường đi thay đổi, không chỉ kiểm tra source.
+- Không có secret trong frontend hoặc log.
+- Không tạo file tải ngoài project.
+- Không có model/output lớn bị Git theo dõi.
+- Chạy lại không tạo job trả phí hoặc asset trùng.
+
+Bắt đầu triển khai tại [Kế hoạch test từng bước](docs/08-ke-hoach-test.md).

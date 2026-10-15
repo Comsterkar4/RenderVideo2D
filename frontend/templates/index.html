@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="RenderVideo — tạo storyboard và video từ truyện">
+  <title>RenderVideo</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.ico">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body data-api-base="{{ api_base_url }}">
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="RenderVideo home">
+      <span class="brand-mark">RV</span>
+      <span>
+        <strong>RenderVideo</strong>
+        <small>Story production workspace</small>
+      </span>
+    </a>
+    <div class="topbar-actions">
+      <button class="secondary-button key-settings-button" id="gemini-key-button" type="button">
+        Gemini · <span id="gemini-key-count">0</span>
+      </button>
+      <button class="secondary-button key-settings-button" id="vivibe-key-button" type="button">
+        ViViBe · <span id="vivibe-key-state">Chưa có</span>
+      </button>
+      <div class="service-status" id="service-status" role="status">
+        <span class="status-dot"></span>
+        <span>Đang kiểm tra backend…</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="sidebar-heading">
+        <div>
+          <span class="eyebrow">Workspace</span>
+          <h2>Dự án</h2>
+        </div>
+        <button class="icon-button" id="new-project-button" type="button" aria-label="Tạo dự án mới">+</button>
+      </div>
+      <div class="project-list" id="project-list" aria-live="polite"></div>
+    </aside>
+
+    <main class="main-content">
+      <section class="welcome-panel" id="welcome-view">
+        <span class="eyebrow">Từ câu chữ đến khung hình</span>
+        <h1>Tạo video kể chuyện có cấu trúc.</h1>
+        <p>Nhập truyện, để Ollama tạo Character Bible và storyboard, sau đó duyệt từng cảnh trước khi tạo media.</p>
+        <button class="primary-button" id="welcome-create-button" type="button">Tạo dự án đầu tiên</button>
+        <div class="workflow-preview" aria-label="Quy trình MVP">
+          <div><span>01</span><strong>Truyện</strong><small>Nội dung nguồn</small></div>
+          <div><span>02</span><strong>Storyboard</strong><small>Nhân vật & cảnh</small></div>
+          <div><span>03</span><strong>Media</strong><small>Ảnh & giọng đọc</small></div>
+          <div><span>04</span><strong>Video</strong><small>Preview MP4</small></div>
+        </div>
+      </section>
+
+      <section class="form-panel hidden" id="create-view">
+        <div class="section-title">
+          <div>
+            <span class="eyebrow">Project mới</span>
+            <h1>Bắt đầu từ một câu chuyện</h1>
+          </div>
+          <button class="text-button" id="cancel-create-button" type="button">Hủy</button>
+        </div>
+        <form id="project-form" class="project-form">
+          <label>
+            <span>Tiêu đề</span>
+            <input name="title" maxlength="200" required placeholder="Ví dụ: Cô bé quàng khăn đỏ">
+          </label>
+          <label class="full-width">
+            <span>Nội dung truyện</span>
+            <textarea name="story" rows="9" required placeholder="Dán hoặc viết toàn bộ câu chuyện ở đây…"></textarea>
+          </label>
+          <div class="fixed-setting">
+            <span>Hình ảnh</span>
+            <strong>Hoạt hình 2D vẽ tay</strong>
+            <small>Màu phẳng, đường nét rõ, thân thiện với trẻ em</small>
+          </div>
+          <label>
+            <span>Tỷ lệ khung hình</span>
+            <select name="aspect_ratio">
+              <option value="16:9">16:9 — Video ngang</option>
+              <option value="9:16">9:16 — Video dọc</option>
+              <option value="1:1">1:1 — Vuông</option>
+            </select>
+          </label>
+          <div class="fixed-setting">
+            <span>Ngôn ngữ video</span>
+            <strong>Tiếng Việt</strong>
+            <small>Tự động áp dụng, không chuyển sang ngôn ngữ khác</small>
+          </div>
+          <div class="form-actions full-width">
+            <button class="primary-button" type="submit">Tạo dự án</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="project-view hidden" id="project-view">
+        <div class="project-header">
+          <div>
+            <span class="eyebrow" id="project-language">PROJECT</span>
+            <h1 id="project-title"></h1>
+            <p id="project-meta"></p>
+          </div>
+          <div class="header-actions">
+            <button class="secondary-button" id="refresh-button" type="button">Làm mới</button>
+            <button class="danger-button" id="delete-button" type="button">Xóa</button>
+          </div>
+        </div>
+
+        <ol class="progress" id="progress-list" aria-label="Tiến trình dự án"></ol>
+
+        <div class="action-banner" id="action-banner">
+          <div>
+            <span class="eyebrow">Bước hiện tại</span>
+            <h2 id="action-title">Tạo storyboard</h2>
+            <p id="action-description">Ollama sẽ phân tích truyện và xây dựng nhân vật cùng các cảnh.</p>
+          </div>
+          <div class="action-buttons">
+            <label class="image-provider-control hidden" id="image-provider-control">
+              <span>Nguồn tạo ảnh</span>
+              <select id="image-provider-select">
+                <option value="comfyui">ComfyUI local</option>
+                <option value="gemini">Gemini API</option>
+              </select>
+            </label>
+            <div class="audio-settings-control hidden" id="audio-settings-control">
+              <label>
+                <span>Giọng ViViBe</span>
+                <select id="vivibe-voice-select">
+                  <option value="">Chọn giọng</option>
+                </select>
+              </label>
+              <label class="audio-speed-control">
+                <span>Tốc độ</span>
+                <input id="vivibe-speed-input" type="number" min="0.5" max="2" step="0.1" value="1">
+              </label>
+              <button class="secondary-button" id="refresh-vivibe-voices-button" type="button">Tải danh sách giọng</button>
+            </div>
+            <button class="primary-button" id="analyze-button" type="button">Phân tích truyện</button>
+            <button class="primary-button hidden" id="generate-images-button" type="button">Tạo tất cả hình ảnh</button>
+            <button class="primary-button hidden" id="approve-images-button" type="button">Duyệt hình ảnh</button>
+            <button class="primary-button hidden" id="configure-vivibe-button" type="button">Nhập ViViBe API key</button>
+            <button class="primary-button hidden" id="generate-audio-button" type="button">Tạo âm thanh</button>
+          </div>
+        </div>
+
+        <details class="story-card">
+          <summary>Truyện nguồn</summary>
+          <p id="project-story"></p>
+        </details>
+
+        <section class="storyboard-section hidden" id="storyboard-section">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Character Bible</span>
+              <h2>Nhân vật</h2>
+            </div>
+            <span class="count-badge" id="character-count"></span>
+          </div>
+          <div class="card-grid" id="character-list"></div>
+
+          <div class="section-title scenes-heading">
+            <div>
+              <span class="eyebrow">Timeline</span>
+              <h2>Các cảnh</h2>
+            </div>
+            <span class="count-badge" id="scene-count"></span>
+          </div>
+          <div class="scene-list" id="scene-list"></div>
+
+          <details class="json-editor">
+            <summary>Chỉnh sửa storyboard JSON</summary>
+            <p>Sửa dữ liệu rồi lưu trước khi duyệt. Schema sẽ được backend kiểm tra.</p>
+            <textarea id="storyboard-json" rows="24" spellcheck="false"></textarea>
+            <div class="form-actions">
+              <button class="secondary-button" id="save-storyboard-button" type="button">Lưu thay đổi</button>
+              <button class="primary-button" id="approve-button" type="button">Duyệt storyboard</button>
+            </div>
+          </details>
+        </section>
+
+        <section class="scene-image-section hidden" id="scene-image-section">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Scene assets</span>
+              <h2>Hình ảnh các cảnh</h2>
+            </div>
+            <span class="count-badge" id="scene-image-count"></span>
+          </div>
+          <p class="section-description">Mỗi cảnh dùng một ảnh gốc. Bạn có thể tạo lại từng ảnh trước khi duyệt.</p>
+          <div class="scene-image-list" id="scene-image-list"></div>
+        </section>
+
+        <section class="scene-audio-section hidden" id="scene-audio-section">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Narration assets</span>
+              <h2>Âm thanh các cảnh</h2>
+            </div>
+            <span class="count-badge" id="scene-audio-count"></span>
+          </div>
+          <p class="section-description">ViViBe tạo file WAV và phụ đề SRT cho lời dẫn của từng cảnh.</p>
+          <div class="scene-audio-list" id="scene-audio-list"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog class="settings-dialog" id="gemini-key-dialog">
+    <form id="gemini-key-form">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Backend secret</span>
+          <h2>Gemini API keys</h2>
+        </div>
+        <button class="text-button" id="close-gemini-key-dialog" type="button">Đóng</button>
+      </div>
+      <p id="gemini-key-status">Chưa có key.</p>
+      <label>
+        <span>Mỗi dòng một API key</span>
+        <textarea
+          id="gemini-key-input"
+          rows="7"
+          autocomplete="off"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="AIza…&#10;AIza…"
+        ></textarea>
+      </label>
+      <small>Key được gửi tới backend và chỉ giữ trong RAM. Backend khởi động lại thì cần nhập lại. Key không được trả về giao diện.</small>
+      <div class="form-actions">
+        <button class="danger-button" id="clear-gemini-keys" type="button">Xóa key đã lưu</button>
+        <button class="primary-button" type="submit">Lưu keys</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="settings-dialog" id="vivibe-key-dialog">
+    <form id="vivibe-key-form">
+      <div class="section-title">
+        <div>
+          <span class="eyebrow">Backend secret</span>
+          <h2>ViViBe API key</h2>
+        </div>
+        <button class="text-button" id="close-vivibe-key-dialog" type="button">Đóng</button>
+      </div>
+      <p id="vivibe-key-status">Chưa có key.</p>
+      <label>
+        <span>API key</span>
+        <input
+          id="vivibe-key-input"
+          type="password"
+          autocomplete="new-password"
+          autocapitalize="off"
+          spellcheck="false"
+          placeholder="Nhập ViViBe API key"
+        >
+      </label>
+      <small>Key được gửi tới backend và chỉ giữ trong RAM. Backend khởi động lại thì cần nhập lại. Key không được trả về giao diện.</small>
+      <div class="form-actions">
+        <button class="danger-button" id="clear-vivibe-key" type="button">Xóa key đã lưu</button>
+        <button class="primary-button" type="submit">Lưu key</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast hidden" id="toast" role="alert"></div>
+  <div class="loading-overlay hidden" id="loading-overlay" aria-live="assertive">
+    <div class="loader"></div>
+    <strong id="loading-title">Đang xử lý…</strong>
+    <span id="loading-message">Vui lòng giữ trang này mở.</span>
+  </div>
+</body>
+</html>

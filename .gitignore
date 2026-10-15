@@ -1,0 +1,38 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+.venv-comfyui/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Local caches and runtime
+.cache/
+.runtime/
+downloads/
+
+# Models and third-party source
+models/
+third_party/
+tools/*
+!tools/.gitkeep
+
+# Generated project assets
+data/
+
+# Local logs and media outputs
+*.log
+*.mp4
+*.wav
+*.mp3
+
+# Editor and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

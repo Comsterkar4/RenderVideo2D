@@ -1,0 +1,164 @@
+Metadata-Version: 2.4
+Name: render-video
+Version: 0.1.0
+Summary: Turn structured stories into narrated videos
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: alembic>=1.14.0
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: httpx>=0.28.0
+Requires-Dist: jinja2>=3.1.5
+Requires-Dist: sqlalchemy>=2.0.36
+Requires-Dist: uvicorn>=0.34.0
+
+# RenderVideo
+
+RenderVideo chuyển truyện thành video gồm hình ảnh, giọng kể tiếng Việt, phụ đề và âm thanh.
+
+## Quyết định hiện tại
+
+```text
+Ollama       → phân tích truyện và tạo storyboard
+ComfyUI      → tạo ảnh nhân vật và ảnh cảnh
+ViViBe API   → tạo audio và SRT bên ngoài máy
+FFmpeg       → pan/zoom, ghép timeline và xuất MP4
+Wan2.2       → image-to-video, chỉ triển khai sau MVP
+```
+
+> **Chính sách local:** mọi source, model, package cache, file tạm và output được tải trong quá trình phát triển phải nằm trong thư mục dự án này. Không cài hoặc tải ra ngoài project khi chưa được chấp thuận.
+
+## Chạy backend hiện tại
+
+Backend dùng cổng `9000`. Frontend sẽ dùng cổng `9001` sau khi được triển khai.
+
+Môi trường và package được tạo trong `.venv/`; cache tải xuống nằm trong `.cache/`.
+
+Lần đầu tiên, đồng bộ backend:
+
+```bash
+./scripts/setup_backend.sh
+```
+
+Sau đó chạy chế độ development có tự reload:
+
+```bash
+bun run dev
+```
+
+Mở terminal khác để kiểm tra:
+
+```bash
+curl --fail --silent http://127.0.0.1:9000/health
+```
+
+Kết quả mong đợi:
+
+```json
+{"status":"ok","service":"render-video-api","version":"0.1.0"}
+```
+
+## Chạy Ollama phân tích truyện
+
+Cài local một lần:
+
+```bash
+bun run ollama:setup
+```
+
+Khởi động Ollama ở terminal riêng:
+
+```bash
+bun run ollama:serve
+```
+
+Tải model storyboard:
+
+```bash
+bun run ollama:pull
+```
+
+Toàn bộ binary và model được lưu trong `tools/`, `downloads/` và `models/` của project.
+
+## Tài liệu
+
+Đọc theo thứ tự:
+
+| Bước | Tài liệu | Nội dung |
+|---:|---|---|
+| 0 | [Tổng quan](docs/00-tong-quan.md) | Mục tiêu, luồng xử lý và phạm vi MVP |
+| 1 | [Thư mục và cài đặt](docs/01-thu-muc-va-cai-dat.md) | Chính sách tải local, cache, model và dependency |
+| 2 | [Kiến trúc](docs/02-kien-truc.md) | Dịch vụ, queue, trạng thái và dữ liệu |
+| 3 | [Storyboard với Ollama](docs/03-storyboard-ollama.md) | Character Bible, schema và test phân tích truyện |
+| 4 | [Hình ảnh với ComfyUI](docs/04-hinh-anh-comfyui.md) | Workflow, ảnh tham chiếu và test tạo ảnh |
+| 5 | [Giọng nói với ViViBe](docs/05-giong-noi-vivibe.md) | Gửi job, polling, tải audio/SRT và kiểm soát credit |
+| 6 | [Dựng video với FFmpeg](docs/06-dung-video-ffmpeg.md) | Timeline, đồng bộ và test video |
+| 7 | [Video với Wan2.2](docs/07-video-wan22.md) | Image-to-video tùy chọn sau MVP |
+| 8 | [Kế hoạch test](docs/08-ke-hoach-test.md) | Các bước triển khai có artifact kiểm chứng |
+| 9 | [Vận hành và rủi ro](docs/09-van-hanh.md) | Retry, GPU, secret, chi phí và giấy phép |
+| 10 | [API quản lý project](docs/10-api-projects.md) | SQLite, migration và API CRUD project |
+| 11 | [Kiến trúc mở rộng](docs/11-kien-truc-mo-rong.md) | Ranh giới engine, workflow, provider, channel và renderer |
+
+## Thứ tự triển khai
+
+### Mốc A — Chứng minh pipeline nhẹ
+
+1. FastAPI health endpoint.
+2. Project và storyboard schema.
+3. Ollama tạo storyboard JSON.
+4. ViViBe tạo một audio ngắn và SRT.
+5. FFmpeg ghép một ảnh + audio + phụ đề thành MP4.
+
+Kết quả cần quan sát:
+
+```text
+data/projects/test-render/renders/preview.mp4
+```
+
+### Mốc B — Tích hợp hình ảnh
+
+1. Cài ComfyUI và model vào thư mục local của project.
+2. Tạo ảnh nhân vật.
+3. Duyệt ảnh tham chiếu.
+4. Tạo ảnh cảnh.
+5. Render truyện ba cảnh.
+
+Mốc này là MVP kỹ thuật.
+
+### Mốc C — Hoàn thiện sản phẩm
+
+1. UI nhập truyện và duyệt storyboard.
+2. UI duyệt/tạo lại tài nguyên.
+3. Theo dõi trạng thái job.
+4. Preview và tải video.
+5. Bổ sung Wan2.2 nếu phần cứng đáp ứng.
+
+## Cấu trúc lưu trữ local
+
+```text
+RenderVideo/
+├── .cache/
+├── .runtime/
+├── .venv/
+├── data/projects/
+├── downloads/
+├── models/
+├── third_party/
+├── tools/
+├── workflows/
+├── backend/
+├── frontend/
+└── docs/
+```
+
+Chi tiết và biến môi trường: [docs/01-thu-muc-va-cai-dat.md](docs/01-thu-muc-va-cai-dat.md).
+
+## Điều kiện trước khi chuyển bước
+
+- Có artifact quan sát được từ bước vừa làm.
+- Đã chạy đúng đường đi thay đổi, không chỉ kiểm tra source.
+- Không có secret trong frontend hoặc log.
+- Không tạo file tải ngoài project.
+- Không có model/output lớn bị Git theo dõi.
+- Chạy lại không tạo job trả phí hoặc asset trùng.
+
+Bắt đầu triển khai tại [Kế hoạch test từng bước](docs/08-ke-hoach-test.md).
