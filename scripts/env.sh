@@ -27,7 +27,7 @@ export COMFYUI_VERSION="${COMFYUI_VERSION:-v0.40.0}"
 export COMFYUI_DIR="$PROJECT_ROOT/third_party/ComfyUI-$COMFYUI_VERSION"
 export COMFYUI_VENV="$PROJECT_ROOT/.venv-comfyui"
 export COMFYUI_MODEL_ROOT="$PROJECT_ROOT/models/comfyui"
-export COMFYUI_CHECKPOINT="${COMFYUI_CHECKPOINT:-v1-5-pruned-emaonly-fp16.safetensors}"
+export COMFYUI_CHECKPOINT="${COMFYUI_CHECKPOINT:-dreamshaper_8.safetensors}"
 export TMPDIR="$PROJECT_ROOT/.runtime/tmp"
 export DATABASE_URL="${DATABASE_URL:-sqlite:///$PROJECT_ROOT/data/render_video.db}"
 

@@ -8,7 +8,7 @@ from threading import Lock
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.config import PROJECT_ROOT
+from backend.config import PROJECT_ROOT, VIVIBE_VOICE_ID, VIVIBE_VOICE_NAME
 from backend.models import Asset, Project, Scene
 from backend.providers.speech.base import (
     SpeechJobStatus,
@@ -29,20 +29,20 @@ def submit_missing_scene_audio(
     session: Session,
     project: Project,
     provider: SpeechProvider,
-    voice_id: str,
     speed: float,
 ) -> None:
     require_audio_generation_state(project)
     for scene in project.scenes:
-        submit_scene_audio(
+        asset = submit_scene_audio(
             session,
             project,
             scene,
             provider,
-            voice_id,
             speed,
             regenerate=False,
         )
+        if asset.status in ACTIVE_AUDIO_STATUSES:
+            return
 
 
 def regenerate_scene_audio(
@@ -50,7 +50,6 @@ def regenerate_scene_audio(
     project: Project,
     scene: Scene,
     provider: SpeechProvider,
-    voice_id: str,
     speed: float,
 ) -> Asset:
     require_audio_generation_state(project)
@@ -59,7 +58,6 @@ def regenerate_scene_audio(
         project,
         scene,
         provider,
-        voice_id,
         speed,
         regenerate=True,
     )
@@ -70,7 +68,6 @@ def submit_scene_audio(
     project: Project,
     scene: Scene,
     provider: SpeechProvider,
-    voice_id: str,
     speed: float,
     *,
     regenerate: bool,
@@ -78,7 +75,8 @@ def submit_scene_audio(
     narration_sha256 = hashlib.sha256(scene.narration.encode("utf-8")).hexdigest()
     requested_metadata = {
         "narration_sha256": narration_sha256,
-        "voice_id": voice_id,
+        "voice_id": VIVIBE_VOICE_ID,
+        "voice_name": VIVIBE_VOICE_NAME,
         "speed": speed,
     }
     active = active_scene_audio(session, project.id, scene.id)
@@ -111,7 +109,7 @@ def submit_scene_audio(
     session.commit()
 
     try:
-        submission = provider.submit(scene.narration, voice_id, speed)
+        submission = provider.submit(scene.narration, VIVIBE_VOICE_ID, speed)
         asset.external_job_id = submission.job_id
         asset.status = "processing"
         asset.metadata_json = {
@@ -158,10 +156,17 @@ def refresh_project_audio(
     )
 
     scenes_by_id = {scene.id: scene for scene in project.scenes}
+    generation_failed = False
+    speed = (
+        float(processing_assets[0].metadata_json.get("speed", 1.0))
+        if processing_assets
+        else 1.0
+    )
     for asset in processing_assets:
         scene = scenes_by_id.get(asset.scene_id or "")
         if scene is None or not asset.external_job_id:
             mark_audio_failed(session, asset, scene, "Audio job metadata is incomplete")
+            generation_failed = True
             continue
 
         try:
@@ -179,6 +184,7 @@ def refresh_project_audio(
                     scene,
                     job_status.error or "ViViBe audio generation failed",
                 )
+                generation_failed = True
                 continue
             complete_audio_asset(session, project, scene, asset, provider, job_status)
         except SpeechProviderUnavailableError:
@@ -189,6 +195,7 @@ def refresh_project_audio(
             failed_asset = session.get(Asset, asset.id)
             failed_scene = session.get(Scene, scene.id)
             if failed_asset is not None:
+                generation_failed = True
                 mark_audio_failed(session, failed_asset, failed_scene, str(exc))
 
     session.commit()
@@ -202,6 +209,11 @@ def refresh_project_audio(
         else "generating_audio"
     )
     session.commit()
+    if not generation_failed and not any(
+        active_scene_audio(session, project.id, scene.id) is not None
+        for scene in project.scenes
+    ):
+        submit_missing_scene_audio(session, project, provider, speed)
 
 
 def complete_audio_asset(
@@ -272,6 +284,7 @@ def complete_audio_asset(
             metadata_json={
                 "mime_type": "application/x-subrip",
                 "voice_id": asset.metadata_json.get("voice_id"),
+                "voice_name": asset.metadata_json.get("voice_name"),
             },
         )
         session.add(subtitle_asset)

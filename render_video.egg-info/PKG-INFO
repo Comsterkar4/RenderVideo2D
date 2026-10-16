@@ -7,6 +7,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: alembic>=1.14.0
 Requires-Dist: fastapi>=0.115.0
 Requires-Dist: httpx>=0.28.0
+Requires-Dist: imageio-ffmpeg>=0.6.0
 Requires-Dist: jinja2>=3.1.5
 Requires-Dist: sqlalchemy>=2.0.36
 Requires-Dist: uvicorn>=0.34.0
@@ -19,65 +20,85 @@ RenderVideo chuyển truyện thành video gồm hình ảnh, giọng kể tiế
 
 ```text
 Ollama       → phân tích truyện và tạo storyboard
-ComfyUI      → tạo ảnh nhân vật và ảnh cảnh
+ComfyUI/Gemini → tạo ảnh nhân vật và ảnh cảnh
 ViViBe API   → tạo audio và SRT bên ngoài máy
 FFmpeg       → pan/zoom, ghép timeline và xuất MP4
 Wan2.2       → image-to-video, chỉ triển khai sau MVP
 ```
 
+Mọi project dùng hình ảnh hoạt hình 2D vẽ tay và lời kể tiếng Việt. Hai giá trị này được backend áp dụng cố định; giao diện không cho chuyển sang phong cách ảnh thật hoặc ngôn ngữ khác.
+
 > **Chính sách local:** mọi source, model, package cache, file tạm và output được tải trong quá trình phát triển phải nằm trong thư mục dự án này. Không cài hoặc tải ra ngoài project khi chưa được chấp thuận.
 
-## Chạy backend hiện tại
+## Chạy ứng dụng
 
-Backend dùng cổng `9000`. Frontend sẽ dùng cổng `9001` sau khi được triển khai.
+Backend dùng cổng `9000`; giao diện Python dùng cổng `9001`.
 
-Môi trường và package được tạo trong `.venv/`; cache tải xuống nằm trong `.cache/`.
-
-Lần đầu tiên, đồng bộ backend:
+Lần đầu tiên, đồng bộ môi trường:
 
 ```bash
 ./scripts/setup_backend.sh
 ```
 
-Sau đó chạy chế độ development có tự reload:
+Chạy API và giao diện cùng lúc, có tự reload:
 
 ```bash
-bun run dev
+./scripts/dev_all.sh
 ```
 
-Mở terminal khác để kiểm tra:
+Hoặc chạy riêng trong hai terminal:
 
 ```bash
-curl --fail --silent http://127.0.0.1:9000/health
+./scripts/dev.sh
+./scripts/dev_frontend.sh
 ```
 
-Kết quả mong đợi:
+Truy cập:
 
-```json
-{"status":"ok","service":"render-video-api","version":"0.1.0"}
-```
+- Giao diện: `http://127.0.0.1:9001`
+- Swagger: `http://127.0.0.1:9000/docs`
+- Backend health: `http://127.0.0.1:9000/health`
+- Frontend health: `http://127.0.0.1:9001/health`
 
 ## Chạy Ollama phân tích truyện
 
 Cài local một lần:
 
 ```bash
-bun run ollama:setup
+./scripts/setup_ollama.sh
 ```
 
 Khởi động Ollama ở terminal riêng:
 
 ```bash
-bun run ollama:serve
+./scripts/run_ollama.sh
 ```
 
 Tải model storyboard:
 
 ```bash
-bun run ollama:pull
+./scripts/pull_story_model.sh
 ```
 
 Toàn bộ binary và model được lưu trong `tools/`, `downloads/` và `models/` của project.
+
+## Tạo ảnh bằng ComfyUI hoặc Gemini
+
+ComfyUI chạy local. Cài ComfyUI `v0.40.0`, môi trường Python riêng và checkpoint Stable Diffusion 1.5 vào project:
+
+```bash
+./scripts/setup_comfyui.sh
+```
+
+Khởi động ở terminal riêng:
+
+```bash
+./scripts/run_comfyui.sh
+```
+
+ComfyUI dùng `http://127.0.0.1:8188`. Launcher tự dùng GPU khi NVIDIA runtime hoạt động; nếu không, nó chuyển sang CPU chậm hơn. Khi backend tạo ảnh bằng ComfyUI, model Ollama được dỡ khỏi bộ nhớ trước và model ComfyUI được giải phóng sau khi hoàn thành.
+
+Gemini chạy qua API từ backend. Chọn **Gemini keys** trên thanh đầu trang, nhập một hoặc nhiều key — mỗi dòng một key — rồi chọn **Gemini API** tại mục **Nguồn tạo ảnh**. Key chỉ được giữ trong RAM của backend, không được trả lại giao diện và cần nhập lại sau khi backend khởi động lại. `GEMINI_API_KEY` trong `.env` vẫn là cấu hình dự phòng tùy chọn.
 
 ## Tài liệu
 
@@ -89,7 +110,7 @@ Toàn bộ binary và model được lưu trong `tools/`, `downloads/` và `mode
 | 1 | [Thư mục và cài đặt](docs/01-thu-muc-va-cai-dat.md) | Chính sách tải local, cache, model và dependency |
 | 2 | [Kiến trúc](docs/02-kien-truc.md) | Dịch vụ, queue, trạng thái và dữ liệu |
 | 3 | [Storyboard với Ollama](docs/03-storyboard-ollama.md) | Character Bible, schema và test phân tích truyện |
-| 4 | [Hình ảnh với ComfyUI](docs/04-hinh-anh-comfyui.md) | Workflow, ảnh tham chiếu và test tạo ảnh |
+| 4 | [Hình ảnh với ComfyUI và Gemini](docs/04-hinh-anh-comfyui.md) | Chọn provider, workflow local, Gemini API và test tạo ảnh |
 | 5 | [Giọng nói với ViViBe](docs/05-giong-noi-vivibe.md) | Gửi job, polling, tải audio/SRT và kiểm soát credit |
 | 6 | [Dựng video với FFmpeg](docs/06-dung-video-ffmpeg.md) | Timeline, đồng bộ và test video |
 | 7 | [Video với Wan2.2](docs/07-video-wan22.md) | Image-to-video tùy chọn sau MVP |
@@ -97,6 +118,8 @@ Toàn bộ binary và model được lưu trong `tools/`, `downloads/` và `mode
 | 9 | [Vận hành và rủi ro](docs/09-van-hanh.md) | Retry, GPU, secret, chi phí và giấy phép |
 | 10 | [API quản lý project](docs/10-api-projects.md) | SQLite, migration và API CRUD project |
 | 11 | [Kiến trúc mở rộng](docs/11-kien-truc-mo-rong.md) | Ranh giới engine, workflow, provider, channel và renderer |
+| 12 | [Mục tiêu MVP](docs/12-mvp.md) | Tiêu chí hoàn thành từ truyện đến MP4 |
+| 13 | [Giao diện Python](docs/13-giao-dien.md) | UI cổng 9001 và các thao tác hiện có |
 
 ## Thứ tự triển khai
 
@@ -139,6 +162,7 @@ RenderVideo/
 ├── .cache/
 ├── .runtime/
 ├── .venv/
+├── .venv-comfyui/
 ├── data/projects/
 ├── downloads/
 ├── models/

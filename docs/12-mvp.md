@@ -54,9 +54,9 @@ Các phần này chỉ bắt đầu sau khi luồng ảnh tĩnh → MP4 hoạt �
 | B1 | ComfyUI tạo một ảnh nhân vật và một ảnh cảnh | Chưa triển khai |
 | B2 | UI duyệt/tạo lại ảnh | Chưa triển khai |
 | C1 | ViViBe tạo audio và SRT | Hoàn thành |
-| D1 | FFmpeg render preview một cảnh | Chưa triển khai |
-| D2 | Render truyện ba cảnh thành MP4 | Chưa triển khai |
-| E1 | UI preview và tải video | Chưa triển khai |
+| D1 | FFmpeg render preview một cảnh | Đã triển khai service/API; cần FFmpeg local để chạy artifact |
+| D2 | Render truyện ba cảnh thành MP4 | Đã triển khai timeline nhiều cảnh; cần FFmpeg local để chạy artifact |
+| E1 | UI preview và tải video | Đã triển khai |
 
 ## Demo nghiệm thu MVP
 

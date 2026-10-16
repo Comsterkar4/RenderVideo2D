@@ -6,6 +6,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 VIDEO_LANGUAGE = "vi"
 VIDEO_LANGUAGE_NAME = "tiếng Việt"
 VISUAL_STYLE = "hoạt hình 2D vẽ tay, màu phẳng, đường nét rõ, thân thiện với trẻ em"
+VIVIBE_VOICE_ID = "mhsL3CPLxmLYdSTKp3GANj"
+VIVIBE_VOICE_NAME = "Adam"
 DEFAULT_DATABASE_PATH = PROJECT_ROOT / "data" / "render_video.db"
 
 

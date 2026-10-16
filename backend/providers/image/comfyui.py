@@ -45,7 +45,7 @@ class ComfyUIImageProvider:
         )
         self.model = os.getenv(
             "COMFYUI_CHECKPOINT",
-            "v1-5-pruned-emaonly-fp16.safetensors",
+            "dreamshaper_8.safetensors",
         )
 
     def device_type(self) -> str:

@@ -35,7 +35,7 @@ models/comfyui/checkpoints/
 downloads/
 ```
 
-Checkpoint mặc định là `v1-5-pruned-emaonly-fp16.safetensors`. Launcher tự chọn GPU hoặc CPU; CPU chỉ là chế độ tương thích chậm khi NVIDIA driver chưa hoạt động.
+Checkpoint mặc định là `dreamshaper_8.safetensors` (DreamShaper 8, Stable Diffusion 1.5, khoảng 2.08 GB). Tải từ [trang model của tác giả Lykon trên Civitai](https://civitai.com/models/4384/dreamshaper) theo giấy phép CreativeML OpenRAIL-M; mã SHA-256: `879db523c30d3b9017143d56705015e15a2cb5628762c11d086fed9538abd7fd`. `COMFYUI_CHECKPOINT` vẫn có thể ghi đè tên file. Launcher tự chọn GPU hoặc CPU; máy hiện tại không nhận NVIDIA nên dùng CPU, chậm hơn.
 
 ## Cấu hình Gemini
 
@@ -101,13 +101,13 @@ Storyboard đã duyệt
 Prompt ảnh cảnh được ghép theo thứ tự:
 
 ```text
-high quality 2D hand-drawn children's storybook animation frame,
-clean expressive line art, cel shading, flat colors, coherent background,
-family-friendly, warm vibrant color palette
-+ scene.image_prompt
-+ "consistent character design: " + character.prompt_fragment của nhân vật trong cảnh
+2D cartoon illustration for a children's picture book, hand-drawn storybook art,
+bold clean ink outlines, flat cel shading, simple rounded shapes, warm vibrant colors
++ scene.image_prompt (mô tả duy nhất địa điểm và hành động của cảnh)
 + single coherent scene, one animation frame, clear focal subject, no text
 ```
+
+`scene.image_prompt` phải tự chứa chủ thể, hành động và địa điểm. Backend không nối `character.prompt_fragment` vào prompt cảnh vì fragment cũ có thể lẫn hành động/địa điểm và làm sai bối cảnh.
 
 Với ComfyUI, danh sách loại trừ được gửi vào negative prompt của Stable Diffusion. Với Gemini, provider nối thêm:
 

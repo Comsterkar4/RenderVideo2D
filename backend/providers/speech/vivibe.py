@@ -11,7 +11,6 @@ from backend.providers.speech.base import (
     SpeechProviderResponseError,
     SpeechProviderUnavailableError,
     SpeechSubmission,
-    SpeechVoice,
 )
 
 
@@ -75,36 +74,6 @@ class VivibeSpeechProvider:
             os.getenv("VIVIBE_MAX_DOWNLOAD_BYTES", str(100 * 1024 * 1024))
         )
         self.transport = transport
-
-    def list_voices(self) -> tuple[SpeechVoice, ...]:
-        result = self._rpc(
-            "getUserVoices",
-            {
-                "limit": 100,
-                "page": 1,
-            },
-        )
-        items = result.get("items")
-        if not isinstance(items, list):
-            raise SpeechProviderResponseError(
-                "ViViBe getUserVoices response is missing result.items"
-            )
-
-        voices: list[SpeechVoice] = []
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            voice_id = item.get("id")
-            name = item.get("name")
-            if isinstance(voice_id, str) and voice_id and isinstance(name, str) and name:
-                voices.append(
-                    SpeechVoice(
-                        id=voice_id,
-                        name=name,
-                        is_active=item.get("isActive") is not False,
-                    )
-                )
-        return tuple(voices)
 
     def submit(self, text: str, voice_id: str, speed: float) -> SpeechSubmission:
         result = self._rpc(

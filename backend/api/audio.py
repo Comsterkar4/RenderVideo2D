@@ -1,4 +1,3 @@
-import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,12 +11,7 @@ from backend.providers.speech.base import (
     SpeechProviderUnavailableError,
 )
 from backend.providers.speech.vivibe import VivibeSpeechProvider
-from backend.schemas import (
-    AudioGenerationOptions,
-    ProjectDetail,
-    VivibeVoiceRead,
-    VivibeVoicesResponse,
-)
+from backend.schemas import AudioGenerationOptions, ProjectDetail
 from backend.services.audio_service import (
     AUDIO_GENERATION_LOCK,
     AudioGenerationStateError,
@@ -45,14 +39,6 @@ def require_scene(project: Project, scene_id: str) -> Scene:
     return scene
 
 
-def resolved_voice_id(options: AudioGenerationOptions) -> str:
-    voice_id = options.voice_id or os.getenv("VIVIBE_DEFAULT_VOICE_ID", "").strip()
-    if not voice_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Select a ViViBe voice before generating audio",
-        )
-    return voice_id
 
 
 def audio_error(exc: Exception) -> HTTPException:
@@ -76,19 +62,6 @@ def acquire_audio_lock() -> None:
         )
 
 
-@router.get("/api/settings/vivibe-voices", response_model=VivibeVoicesResponse)
-def list_vivibe_voices() -> VivibeVoicesResponse:
-    try:
-        voices = VivibeSpeechProvider().list_voices()
-    except Exception as exc:
-        raise audio_error(exc) from exc
-    return VivibeVoicesResponse(
-        items=[
-            VivibeVoiceRead(id=voice.id, name=voice.name, is_active=voice.is_active)
-            for voice in voices
-        ],
-        default_voice_id=os.getenv("VIVIBE_DEFAULT_VOICE_ID", "").strip() or None,
-    )
 
 
 @router.post("/api/projects/{project_id}/audio/generate", response_model=ProjectDetail)
@@ -106,7 +79,6 @@ def generate_project_audio(
                 session,
                 project,
                 provider,
-                resolved_voice_id(options),
                 options.speed,
             )
         except Exception as exc:
@@ -153,7 +125,6 @@ def regenerate_project_scene_audio(
                 project,
                 scene,
                 VivibeSpeechProvider(),
-                resolved_voice_id(options),
                 options.speed,
             )
         except Exception as exc:

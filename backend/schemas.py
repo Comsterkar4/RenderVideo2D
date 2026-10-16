@@ -46,22 +46,17 @@ class VivibeKeyStatus(BaseModel):
     volatile: bool
 
 
-class VivibeVoiceRead(BaseModel):
-    id: str
-    name: str
-    is_active: bool
-
-
-class VivibeVoicesResponse(BaseModel):
-    items: list[VivibeVoiceRead]
-    default_voice_id: str | None
-
 
 class AudioGenerationOptions(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    voice_id: str | None = Field(default=None, min_length=1, max_length=200)
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
+ 
+ 
+class RenderGenerationOptions(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    quality: Literal["preview", "final"] = "preview"
 
 
 class ProjectStatus(StrEnum):

@@ -102,7 +102,7 @@ Validation bắt buộc:
 - Scene order liên tục từ 1.
 - Mọi `character_ids` tồn tại trong Character Bible.
 - Mỗi cảnh có 1–3 nhân vật.
-- Thời lượng mỗi cảnh 4–10 giây.
+- Thời lượng storyboard mục tiêu mỗi cảnh 4–10 giây; sau khi có WAV, `duration_seconds` được cập nhật theo audio thật và có thể dài hơn.
 - `visual_style` được service chuẩn hóa về phong cách hoạt hình 2D vẽ tay cố định trước khi lưu.
 
 ## API

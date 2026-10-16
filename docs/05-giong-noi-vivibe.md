@@ -8,14 +8,13 @@ Tài liệu API chính thức: [ViViBe API Documentation](https://www.vivibe.app
 
 ViViBe chạy ngoài máy. RenderVideo không tải hoặc chạy model TTS local.
 
-API key chỉ tồn tại ở backend/worker. Trên thanh đầu trang, chọn **ViViBe · Chưa có**, nhập key rồi chọn **Lưu key**. Key nhập từ Web UI chỉ được giữ trong RAM, không được trả lại frontend và mất khi backend khởi động lại.
+API key được gửi tới backend và giữ trong RAM. Frontend đồng thời lưu tạm key trong `sessionStorage` của phiên trình duyệt để tự gửi lại nếu backend khởi động lại. Đóng phiên trình duyệt hoặc chọn **Xóa key đã lưu** sẽ xóa bản lưu tạm. Key không được ghi vào database, URL, log hoặc response trạng thái.
 
 Có thể dùng `VIVIBE_API_KEY` trong `.env` làm cấu hình dự phòng khi chưa nhập key trên Web UI:
 
 ```env
 VIVIBE_API_URL=https://api.lucylab.io/json-rpc
 VIVIBE_API_KEY=replace-with-secret
-VIVIBE_DEFAULT_VOICE_ID=replace-with-voice-id
 VIVIBE_TIMEOUT_SECONDS=60
 VIVIBE_MAX_DOWNLOAD_BYTES=104857600
 ```
@@ -35,9 +34,9 @@ narration của cảnh
 → ffprobe đo thời lượng audio
 ```
 
-### Lấy danh sách giọng
+### Giọng đọc cố định
 
-Gọi JSON-RPC method `getUserVoices`. Lưu voice ID được chọn trong cấu hình project, không tra lại cho từng cảnh.
+Mọi narration dùng giọng **Adam**, voice ID `mhsL3CPLxmLYdSTKp3GANj`. Backend giữ giá trị này trong `backend/config.py`; API và frontend không nhận voice ID tùy ý.
 
 ### Tạo audio
 
@@ -46,7 +45,7 @@ Gọi JSON-RPC method `getUserVoices`. Lưu voice ID được chọn trong cấu
   "method": "ttsLongText",
   "input": {
     "text": "Ngày xửa ngày xưa...",
-    "userVoiceId": "VOICE_ID",
+    "userVoiceId": "mhsL3CPLxmLYdSTKp3GANj",
     "speed": 1.0
   }
 }
@@ -80,16 +79,15 @@ Không phụ thuộc lâu dài vào URL của provider vì URL có thể thay đ
 
 ## Adapter và API nội bộ
 
-`VivibeSpeechProvider` gọi bốn thao tác: lấy danh sách giọng, gửi `ttsLongText`, đọc `getExportStatus` và tải URL kết quả. Backend cung cấp:
+`VivibeSpeechProvider` gửi `ttsLongText`, đọc `getExportStatus` và tải URL kết quả. Backend cung cấp:
 
 ```text
-GET  /api/settings/vivibe-voices
 POST /api/projects/<project_id>/audio/generate
 POST /api/projects/<project_id>/audio/refresh
 POST /api/projects/<project_id>/scenes/<scene_id>/audio
 ```
 
-Request `audio/generate` chỉ gửi job và lưu `projectExportId`; không giữ kết nối trong lúc ViViBe xử lý. Frontend gọi `audio/refresh` mỗi 3 giây. Job đang xử lý nằm trong database nên có thể tiếp tục theo dõi sau khi tải lại trang bằng nút **Tạo âm thanh**.
+`audio/generate` gửi một job tại một thời điểm vì ViViBe không chấp nhận job mới khi đã có export đang chạy. Sau mỗi lần hoàn tất, `audio/refresh` tự gửi job kế tiếp và lưu `projectExportId`; request HTTP không chờ quá trình tạo audio. Frontend gọi `audio/refresh` mỗi 3 giây. Job đang xử lý nằm trong database nên có thể tiếp tục theo dõi sau khi tải lại trang bằng nút **Tạo âm thanh**.
 
 Nếu backend dừng đúng lúc `ttsLongText` đã gửi nhưng chưa lưu được `projectExportId`, asset chuyển sang `failed` khi refresh. Hệ thống không tự gửi lại vì có nguy cơ trừ credit hai lần; người dùng phải chủ động thử lại.
 

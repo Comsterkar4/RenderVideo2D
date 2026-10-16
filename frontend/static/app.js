@@ -1,4 +1,5 @@
 const API_BASE = document.body.dataset.apiBase;
+const VIVIBE_SESSION_KEY = 'render-video.vivibe-api-key';
 
 const state = {
   projects: [],
@@ -6,7 +7,6 @@ const state = {
   storyboard: null,
   geminiKeyStatus: null,
   vivibeKeyStatus: null,
-  vivibeVoices: null,
 };
 
 const elements = {
@@ -50,10 +50,10 @@ const elements = {
   approveImagesButton: document.querySelector('#approve-images-button'),
   configureVivibeButton: document.querySelector('#configure-vivibe-button'),
   audioSettingsControl: document.querySelector('#audio-settings-control'),
-  vivibeVoiceSelect: document.querySelector('#vivibe-voice-select'),
   vivibeSpeedInput: document.querySelector('#vivibe-speed-input'),
-  refreshVivibeVoicesButton: document.querySelector('#refresh-vivibe-voices-button'),
   generateAudioButton: document.querySelector('#generate-audio-button'),
+  renderPreviewButton: document.querySelector('#render-preview-button'),
+  renderFinalButton: document.querySelector('#render-final-button'),
   imageProviderControl: document.querySelector('#image-provider-control'),
   imageProviderSelect: document.querySelector('#image-provider-select'),
   sceneImageSection: document.querySelector('#scene-image-section'),
@@ -61,7 +61,10 @@ const elements = {
   sceneImageCount: document.querySelector('#scene-image-count'),
   sceneAudioSection: document.querySelector('#scene-audio-section'),
   sceneAudioList: document.querySelector('#scene-audio-list'),
-  sceneAudioCount: document.querySelector('#scene-audio-count'),
+  generateAudioSectionButton: document.querySelector('#generate-audio-section-button'),
+  renderVideoSection: document.querySelector('#render-video-section'),
+  renderVideoList: document.querySelector('#render-video-list'),
+  renderVideoCount: document.querySelector('#render-video-count'),
   loadingOverlay: document.querySelector('#loading-overlay'),
   loadingTitle: document.querySelector('#loading-title'),
   loadingMessage: document.querySelector('#loading-message'),
@@ -69,12 +72,12 @@ const elements = {
 };
 
 const statusSteps = [
-  ['draft', 'Nội dung'],
-  ['awaiting_storyboard_review', 'Storyboard'],
-  ['generating_assets', 'Hình ảnh'],
-  ['generating_audio', 'Âm thanh'],
-  ['rendering', 'Render'],
-  ['completed', 'Hoàn tất'],
+  ['draft', 'Nội dung', 'story-source'],
+  ['awaiting_storyboard_review', 'Storyboard', 'storyboard-section'],
+  ['generating_assets', 'Hình ảnh', 'scene-image-section'],
+  ['generating_audio', 'Âm thanh', 'scene-audio-section'],
+  ['rendering', 'Render', 'render-video-section'],
+  ['completed', 'Hoàn tất', 'render-video-section'],
 ];
 
 const statusLabels = {
@@ -189,10 +192,35 @@ async function clearGeminiKeys() {
   }
 }
 
+function temporaryVivibeKey() {
+  try {
+    return sessionStorage.getItem(VIVIBE_SESSION_KEY)?.trim() || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function rememberTemporaryVivibeKey(key) {
+  try {
+    sessionStorage.setItem(VIVIBE_SESSION_KEY, key);
+  } catch (_) {
+    // Backend RAM storage remains the fallback when session storage is unavailable.
+  }
+}
+
+function forgetTemporaryVivibeKey() {
+  try {
+    sessionStorage.removeItem(VIVIBE_SESSION_KEY);
+  } catch (_) {
+    // Nothing else is required when session storage is unavailable.
+  }
+}
+
 function renderVivibeKeyStatus() {
   const settings = state.vivibeKeyStatus;
   elements.vivibeKeyState.textContent = settings?.configured ? 'Đã có' : 'Chưa có';
   elements.clearVivibeKey.disabled = settings?.source !== 'web';
+  elements.generateAudioButton.disabled = !settings?.configured;
   if (settings?.source === 'web') {
     elements.vivibeKeyStatus.textContent = 'Key đang được giữ trong RAM của backend.';
   } else if (settings?.source === 'environment') {
@@ -205,6 +233,17 @@ function renderVivibeKeyStatus() {
 
 async function loadVivibeKeyStatus() {
   state.vivibeKeyStatus = await request('/api/settings/vivibe-key');
+  const temporaryKey = temporaryVivibeKey();
+  if (temporaryKey && !state.vivibeKeyStatus.configured) {
+    try {
+      state.vivibeKeyStatus = await request('/api/settings/vivibe-key', {
+        method: 'PUT',
+        body: JSON.stringify({key: temporaryKey}),
+      });
+    } catch (_) {
+      forgetTemporaryVivibeKey();
+    }
+  }
   renderVivibeKeyStatus();
 }
 
@@ -228,13 +267,10 @@ async function saveVivibeKey(event) {
       method: 'PUT',
       body: JSON.stringify({key}),
     });
+    rememberTemporaryVivibeKey(key);
     renderVivibeKeyStatus();
     elements.vivibeKeyDialog.close();
-    toast('Đã lưu ViViBe API key trong RAM.');
-    if (state.project?.status === 'generating_audio') {
-      await loadVivibeVoices();
-      renderProject();
-    }
+    toast('Đã lưu ViViBe API key trong RAM và tạm trong phiên trình duyệt.');
   } catch (error) {
     toast(error.message, 'error');
   }
@@ -246,42 +282,14 @@ async function clearVivibeKey() {
     state.vivibeKeyStatus = await request('/api/settings/vivibe-key', {
       method: 'DELETE',
     });
+    forgetTemporaryVivibeKey();
     renderVivibeKeyStatus();
-    toast('Đã xóa ViViBe API key lưu trong RAM.');
+    toast('Đã xóa ViViBe API key khỏi RAM và phiên trình duyệt.');
   } catch (error) {
     toast(error.message, 'error');
   }
 }
 
-function renderVivibeVoices() {
-  const selected = elements.vivibeVoiceSelect.value;
-  elements.vivibeVoiceSelect.replaceChildren();
-  const placeholder = element('option', '', 'Chọn giọng');
-  placeholder.value = '';
-  elements.vivibeVoiceSelect.append(placeholder);
-
-  const voices = state.vivibeVoices?.items?.filter((voice) => voice.is_active) || [];
-  voices.forEach((voice) => {
-    const option = element('option', '', voice.name);
-    option.value = voice.id;
-    elements.vivibeVoiceSelect.append(option);
-  });
-  const preferred = selected || state.vivibeVoices?.default_voice_id || '';
-  if (voices.some((voice) => voice.id === preferred)) {
-    elements.vivibeVoiceSelect.value = preferred;
-  }
-  elements.generateAudioButton.disabled = !state.vivibeKeyStatus?.configured || !voices.length;
-}
-
-async function loadVivibeVoices() {
-  if (!state.vivibeKeyStatus?.configured) {
-    state.vivibeVoices = null;
-    renderVivibeVoices();
-    return;
-  }
-  state.vivibeVoices = await request('/api/settings/vivibe-voices');
-  renderVivibeVoices();
-}
 
 function showOnly(view) {
   [elements.welcomeView, elements.createView, elements.projectView].forEach((item) => {
@@ -363,16 +371,6 @@ async function selectProject(projectId) {
     renderProject();
     renderProjectList();
     showOnly(elements.projectView);
-    if (
-      ['generating_audio', 'rendering', 'completed'].includes(state.project.status)
-      && state.vivibeKeyStatus?.configured
-    ) {
-      try {
-        await loadVivibeVoices();
-      } catch (error) {
-        toast(`Không tải được danh sách giọng: ${error.message}`, 'error');
-      }
-    }
   } catch (error) {
     toast(error.message, 'error');
   } finally {
@@ -391,16 +389,38 @@ function renderProject() {
   renderStoryboard();
   renderSceneImages();
   renderSceneAudio();
+  renderVideos();
+}
+
+function scrollToProjectSection(targetId) {
+  const target = document.querySelector(`#${targetId}`);
+  if (!target) return;
+  target.scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 function renderProgress(status) {
   elements.progressList.replaceChildren();
   const normalized = status === 'analyzing' ? 'draft' : status === 'awaiting_asset_review' ? 'generating_assets' : status;
   const activeIndex = Math.max(0, statusSteps.findIndex(([key]) => key === normalized));
-  statusSteps.forEach(([key, label], index) => {
+  statusSteps.forEach(([key, label, targetId], index) => {
     const item = element('li', index < activeIndex ? 'done' : index === activeIndex ? 'active' : '');
-    item.append(element('span', '', index < activeIndex ? '✓' : String(index + 1)), element('strong', '', label));
     item.dataset.status = key;
+    item.dataset.target = targetId;
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', `Mở phần ${label}`);
+    item.append(
+      element('span', '', index < activeIndex ? '✓' : String(index + 1)),
+      element('strong', '', label),
+    );
+    const navigate = () => scrollToProjectSection(targetId);
+    item.addEventListener('click', navigate);
+    item.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        navigate();
+      }
+    });
     elements.progressList.append(item);
   });
 }
@@ -409,12 +429,15 @@ function renderAction(status) {
   const canAnalyze = status === 'draft' || status === 'awaiting_storyboard_review';
   const imagePhase = ['generating_assets', 'awaiting_asset_review'].includes(status);
   const audioPhase = status === 'generating_audio';
+  const renderPhase = ['rendering', 'completed'].includes(status);
   elements.analyzeButton.classList.toggle('hidden', !canAnalyze);
   elements.generateImagesButton.classList.toggle('hidden', status !== 'generating_assets');
   elements.approveImagesButton.classList.toggle('hidden', status !== 'awaiting_asset_review');
   elements.configureVivibeButton.classList.toggle('hidden', !audioPhase);
   elements.audioSettingsControl.classList.toggle('hidden', !audioPhase);
   elements.generateAudioButton.classList.toggle('hidden', !audioPhase);
+  elements.renderPreviewButton.classList.toggle('hidden', !renderPhase);
+  elements.renderFinalButton.classList.toggle('hidden', !renderPhase);
   elements.imageProviderControl.classList.toggle('hidden', !imagePhase);
 
   if (status === 'draft') {
@@ -436,13 +459,13 @@ function renderAction(status) {
     elements.actionDescription.textContent = 'Xem từng cảnh, chọn nguồn và tạo lại ảnh chưa đạt rồi duyệt.';
   } else if (status === 'generating_audio') {
     elements.actionTitle.textContent = 'Tạo giọng đọc bằng ViViBe';
-    elements.actionDescription.textContent = 'Chọn giọng và tốc độ. Audio WAV cùng SRT được tải về từng cảnh.';
+    elements.actionDescription.textContent = 'Giọng Adam cố định. Chọn tốc độ để tạo WAV và SRT cho từng cảnh.';
   } else if (status === 'rendering') {
-    elements.actionTitle.textContent = 'Âm thanh đã sẵn sàng';
-    elements.actionDescription.textContent = 'Kiểm tra giọng đọc trước khi chuyển sang bước dựng video.';
-  } else {
-    elements.actionTitle.textContent = statusLabels[status] || status;
-    elements.actionDescription.textContent = 'Theo dõi tiến trình của project tại đây.';
+    elements.actionTitle.textContent = 'Dựng video theo thời lượng lời đọc';
+    elements.actionDescription.textContent = 'Mỗi ảnh được pan/zoom đúng thời lượng WAV; phụ đề được ghép theo timeline.';
+  } else if (status === 'completed') {
+    elements.actionTitle.textContent = 'Video đã sẵn sàng';
+    elements.actionDescription.textContent = 'Có thể xem, tải xuống hoặc render lại preview/final sau khi thay đổi media.';
   }
 }
 
@@ -595,9 +618,20 @@ function renderSceneAudio() {
   const completed = state.project.scenes
     .filter((scene) => currentAudioForScene(scene.id))
     .length;
-  elements.sceneAudioCount.textContent = `${completed}/${state.project.scenes.length} audio`;
+  const missing = state.project.scenes.length - completed;
+  if (elements.generateAudioSectionButton) {
+    elements.generateAudioSectionButton.classList.toggle(
+      'hidden',
+      !missing || !state.vivibeKeyStatus?.configured,
+    );
+    elements.generateAudioSectionButton.textContent = missing
+      ? `Tạo ${missing} cảnh audio còn thiếu`
+      : 'Tạo audio còn thiếu';
+    elements.generateAudioSectionButton.disabled = hasProcessingAudio();
+  }
   elements.sceneAudioList.replaceChildren();
 
+  const audioBusy = hasProcessingAudio();
   state.project.scenes.forEach((scene) => {
     const asset = currentAudioForScene(scene.id);
     const subtitle = currentSubtitleForScene(scene.id);
@@ -624,7 +658,7 @@ function renderSceneAudio() {
       const metadata = element(
         'small',
         'scene-audio-metadata',
-        `ViViBe · giọng ${asset.metadata.voice_id} · tốc độ ${asset.metadata.speed}`,
+        `ViViBe · giọng ${asset.metadata.voice_name || 'Adam'} · tốc độ ${asset.metadata.speed}`,
       );
       card.append(metadata);
       if (subtitle) {
@@ -646,7 +680,7 @@ function renderSceneAudio() {
       const active = ['submitting', 'processing'].includes(latest?.status);
       const retry = element('button', 'secondary-button', asset ? 'Tạo lại âm thanh' : 'Tạo âm thanh cảnh này');
       retry.type = 'button';
-      retry.disabled = active || !state.vivibeKeyStatus?.configured;
+      retry.disabled = audioBusy || active || !state.vivibeKeyStatus?.configured;
       retry.addEventListener('click', () => generateSceneAudio(scene.id));
       card.append(retry);
     }
@@ -654,6 +688,38 @@ function renderSceneAudio() {
     elements.sceneAudioList.append(card);
   });
 }
+function currentRenderVideos() {
+  return state.project.assets
+    .filter((asset) => asset.kind === 'render_video' && asset.status === 'completed')
+    .sort((left, right) => left.created_at.localeCompare(right.created_at));
+}
+
+function renderVideos() {
+  const videos = currentRenderVideos();
+  elements.renderVideoSection.classList.toggle('hidden', !videos.length);
+  if (!videos.length) return;
+
+  elements.renderVideoCount.textContent = `${videos.length} bản render`;
+  elements.renderVideoList.replaceChildren();
+  videos.forEach((asset) => {
+    const card = element('article', 'render-video-card');
+    const quality = asset.metadata.quality === 'final' ? 'Final' : 'Preview';
+    const video = element('video');
+    video.controls = true;
+    video.preload = 'metadata';
+    video.src = `${API_BASE}/api/assets/${asset.id}/content?v=${asset.sha256 || asset.id}`;
+    const download = element('a', 'primary-button', `Tải ${quality}`);
+    download.href = video.src;
+    download.download = `${state.project.id}-${asset.metadata.quality}.mp4`;
+    card.append(
+      element('div', 'render-video-heading', `${quality} · ${asset.metadata.duration_seconds}s`),
+      video,
+      download,
+    );
+    elements.renderVideoList.append(card);
+  });
+}
+
 
 async function createProject(event) {
   event.preventDefault();
@@ -799,17 +865,12 @@ async function approveImages() {
   }
 }
 
-function selectedAudioOptions(sceneId = null) {
-  const existing = sceneId ? currentAudioForScene(sceneId) : null;
-  const voiceId = elements.vivibeVoiceSelect.value || existing?.metadata.voice_id;
-  const speed = Number(elements.vivibeSpeedInput.value || existing?.metadata.speed || 1);
-  if (!voiceId) {
-    throw new Error('Chọn một giọng ViViBe trước khi tạo âm thanh.');
-  }
+function selectedAudioOptions() {
+  const speed = Number(elements.vivibeSpeedInput.value || 1);
   if (!Number.isFinite(speed) || speed < 0.5 || speed > 2) {
     throw new Error('Tốc độ ViViBe phải nằm trong khoảng 0.5–2.0.');
   }
-  return {voice_id: voiceId, speed};
+  return {speed};
 }
 
 function currentAudioFailure() {
@@ -879,7 +940,7 @@ async function generateProjectAudio() {
 async function generateSceneAudio(sceneId) {
   let options;
   try {
-    options = selectedAudioOptions(sceneId);
+    options = selectedAudioOptions();
   } catch (error) {
     toast(error.message, 'error');
     return;
@@ -907,13 +968,24 @@ async function generateSceneAudio(sceneId) {
   }
 }
 
-async function refreshVivibeVoices() {
-  setBusy(true, 'Đang tải danh sách giọng ViViBe…');
+
+async function renderVideo(quality) {
+  setBusy(
+    true,
+    quality === 'final' ? 'Đang render video final…' : 'Đang render preview…',
+    'Ảnh và lời đọc đang được ghép theo timeline.',
+  );
   try {
-    await loadVivibeVoices();
-    toast(`Đã tải ${state.vivibeVoices.items.length} giọng ViViBe.`);
+    state.project = await request(`/api/projects/${state.project.id}/render`, {
+      method: 'POST',
+      body: JSON.stringify({quality}),
+    });
+    renderProject();
+    await loadProjects();
+    toast(quality === 'final' ? 'Đã render video final.' : 'Đã render preview.');
   } catch (error) {
     toast(error.message, 'error');
+    await selectProject(state.project.id);
   } finally {
     setBusy(false);
   }
@@ -970,7 +1042,11 @@ elements.approveButton.addEventListener('click', approveStoryboard);
 elements.generateImagesButton.addEventListener('click', generateProjectImages);
 elements.approveImagesButton.addEventListener('click', approveImages);
 elements.generateAudioButton.addEventListener('click', generateProjectAudio);
-elements.refreshVivibeVoicesButton.addEventListener('click', refreshVivibeVoices);
+if (elements.generateAudioSectionButton) {
+  elements.generateAudioSectionButton.addEventListener('click', generateProjectAudio);
+}
+elements.renderPreviewButton.addEventListener('click', () => renderVideo('preview'));
+elements.renderFinalButton.addEventListener('click', () => renderVideo('final'));
 elements.imageProviderSelect.addEventListener('change', () => {
   if (state.project) renderAction(state.project.status);
 });

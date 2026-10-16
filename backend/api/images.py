@@ -228,6 +228,7 @@ def get_asset_content(asset_id: str, session: DatabaseSession) -> FileResponse:
         "image/jpeg",
         "audio/wav",
         "application/x-subrip",
+        "video/mp4",
     }
     if media_type not in allowed_media_types:
         media_type = {

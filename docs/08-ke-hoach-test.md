@@ -101,25 +101,29 @@ data/projects/test-vivibe/scenes/scene_001/narration.wav
 ```
 
 Đạt theo [05-giong-noi-vivibe.md](05-giong-noi-vivibe.md).
-
 ## Bước 4 — FFmpeg một cảnh
 
-Không chờ ComfyUI. Dùng một ảnh test nhỏ và audio từ Bước 3.
+Không chờ ComfyUI. Dùng ảnh và audio đã có từ các bước trước.
+
 
 Xây dựng:
 
-- Timeline JSON.
-- Pan/zoom.
-- Audio.
-- Phụ đề.
+- Timeline JSON theo project.
+- Đo lại WAV từng cảnh.
+- Pan/zoom ảnh theo đúng thời lượng WAV.
+- Ghép nhiều cảnh, dời SRT theo offset và burn phụ đề.
+- API render preview/final và UI xem/tải MP4.
 
-Artifact:
+Artifact sẽ được tạo khi máy có `ffmpeg`:
 
 ```text
-data/projects/test-render/renders/preview.mp4
+data/projects/<project_id>/timeline.json
+data/projects/<project_id>/renders/preview.mp4
 ```
 
-Phải mở/probe video thực tế.
+Đã kiểm tra bằng service: project mẫu có 10 cảnh, tỷ lệ `9:16`, tổng thời lượng WAV `54.661s`; SRT được dời mốc cảnh thứ hai bắt đầu tại `00:00:07,175`.
+
+Lần chạy endpoint hiện tại trả lỗi rõ ràng `409 FFmpeg is not available...`; chưa thể probe MP4 cho tới khi cài binary trong project hoặc cấu hình `FFMPEG_BIN`.
 
 ## Bước 5 — ComfyUI một ảnh
 

@@ -17,7 +17,7 @@ class ScenePlan(BaseModel):
 
     id: str = Field(pattern=IDENTIFIER_PATTERN)
     order: int = Field(ge=1)
-    duration_seconds: float = Field(ge=4, le=10)
+    duration_seconds: float = Field(gt=0, le=120)
     character_ids: list[str] = Field(min_length=1, max_length=3)
     location: str = Field(min_length=1, max_length=1000)
     narration: str = Field(min_length=1, max_length=1500)
@@ -32,7 +32,7 @@ class ScenePlan(BaseModel):
         return self
 
 
-class StoryboardPlan(BaseModel):
+class StoryboardBase(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     title: str = Field(min_length=1, max_length=200)
@@ -41,7 +41,7 @@ class StoryboardPlan(BaseModel):
     scenes: list[ScenePlan] = Field(min_length=1, max_length=100)
 
     @model_validator(mode="after")
-    def validate_references_and_order(self) -> "StoryboardPlan":
+    def validate_references_and_order(self) -> "StoryboardBase":
         character_ids = [character.id for character in self.characters]
         if len(character_ids) != len(set(character_ids)):
             raise ValueError("character ids must be unique")
@@ -62,3 +62,22 @@ class StoryboardPlan(BaseModel):
                     f"scene {scene.id} references unknown characters: {sorted(unknown)}"
                 )
         return self
+
+
+class StoryboardPlan(StoryboardBase):
+    @model_validator(mode="after")
+    def validate_generated_duration(self) -> "StoryboardPlan":
+        invalid = [
+            scene.id
+            for scene in self.scenes
+            if not 4 <= scene.duration_seconds <= 10
+        ]
+        if invalid:
+            raise ValueError(
+                f"generated scene duration must be between 4 and 10 seconds: {invalid}"
+            )
+        return self
+
+
+class StoryboardReadPlan(StoryboardBase):
+    pass

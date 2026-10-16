@@ -35,8 +35,9 @@ Yêu cầu:
 - Trả title phù hợp với truyện.
 - visual_style phải giữ đúng phong cách bắt buộc ở trên.
 - narration, appearance và location phải bằng tiếng Việt để hiển thị cho người dùng.
-- prompt_fragment phải bằng tiếng Anh và chỉ mô tả thiết kế hình ảnh ổn định của nhân vật.
-- image_prompt phải hoàn toàn bằng tiếng Anh, tự chứa địa điểm, hành động, góc máy và nhấn mạnh phong cách 2D hand-drawn animation.
+- prompt_fragment phải bằng tiếng Anh và chỉ mô tả đặc điểm nhận diện ổn định: tuổi, khuôn mặt, tóc, trang phục và màu sắc; không chứa hành động, địa điểm hoặc đạo cụ theo cảnh.
+- image_prompt phải hoàn toàn bằng tiếng Anh, tự chứa một địa điểm và một hành động chính; mọi chi tiết phải khớp location và narration của cảnh, không trộn bối cảnh từ cảnh khác.
+- image_prompt phải nhấn mạnh phong cách 2D hand-drawn animation và mô tả rõ nhân vật chính, bố cục, góc máy.
 - motion_prompt và sound_effects phải bằng tiếng Anh.
 - Tạo Character Bible trước rồi tham chiếu ID nhân vật trong từng cảnh.
 - Không thêm cánh, phép thuật, vũ khí hoặc phụ kiện nếu truyện không nêu.

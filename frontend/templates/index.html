@@ -7,7 +7,7 @@
   <title>RenderVideo</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.ico">
   <link rel="stylesheet" href="/static/styles.css">
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v=vivibe-session-3" defer></script>
 </head>
 <body data-api-base="{{ api_base_url }}">
   <header class="topbar">
@@ -129,27 +129,26 @@
               </select>
             </label>
             <div class="audio-settings-control hidden" id="audio-settings-control">
-              <label>
-                <span>Giọng ViViBe</span>
-                <select id="vivibe-voice-select">
-                  <option value="">Chọn giọng</option>
-                </select>
-              </label>
+              <div class="fixed-audio-voice">
+                <span>Giọng ViViBe cố định</span>
+                <strong>Adam</strong>
+              </div>
               <label class="audio-speed-control">
                 <span>Tốc độ</span>
                 <input id="vivibe-speed-input" type="number" min="0.5" max="2" step="0.1" value="1">
               </label>
-              <button class="secondary-button" id="refresh-vivibe-voices-button" type="button">Tải danh sách giọng</button>
             </div>
             <button class="primary-button" id="analyze-button" type="button">Phân tích truyện</button>
             <button class="primary-button hidden" id="generate-images-button" type="button">Tạo tất cả hình ảnh</button>
             <button class="primary-button hidden" id="approve-images-button" type="button">Duyệt hình ảnh</button>
             <button class="primary-button hidden" id="configure-vivibe-button" type="button">Nhập ViViBe API key</button>
-            <button class="primary-button hidden" id="generate-audio-button" type="button">Tạo âm thanh</button>
+            <button class="primary-button hidden" id="generate-audio-button" type="button">Tạo WAV + SRT</button>
+            <button class="primary-button hidden" id="render-preview-button" type="button">Render preview</button>
+            <button class="primary-button hidden" id="render-final-button" type="button">Render video final</button>
           </div>
         </div>
 
-        <details class="story-card">
+        <details class="story-card" id="story-source">
           <summary>Truyện nguồn</summary>
           <p id="project-story"></p>
         </details>
@@ -202,10 +201,24 @@
               <span class="eyebrow">Narration assets</span>
               <h2>Âm thanh các cảnh</h2>
             </div>
-            <span class="count-badge" id="scene-audio-count"></span>
+            <div class="section-title-actions">
+              <span class="count-badge" id="scene-audio-count"></span>
+              <button class="secondary-button hidden" id="generate-audio-section-button" type="button">Tạo audio còn thiếu</button>
+            </div>
           </div>
           <p class="section-description">ViViBe tạo file WAV và phụ đề SRT cho lời dẫn của từng cảnh.</p>
           <div class="scene-audio-list" id="scene-audio-list"></div>
+        </section>
+        
+        <section class="render-video-section hidden" id="render-video-section">
+          <div class="section-title">
+            <div>
+              <span class="eyebrow">Video output</span>
+              <h2>Video đã render</h2>
+            </div>
+            <span class="count-badge" id="render-video-count"></span>
+          </div>
+          <div class="render-video-list" id="render-video-list"></div>
         </section>
       </section>
     </main>
@@ -261,7 +274,7 @@
           placeholder="Nhập ViViBe API key"
         >
       </label>
-      <small>Key được gửi tới backend và chỉ giữ trong RAM. Backend khởi động lại thì cần nhập lại. Key không được trả về giao diện.</small>
+      <small>Key được gửi tới backend và giữ trong RAM. Phiên trình duyệt này lưu tạm key để tự khôi phục nếu backend khởi động lại; đóng phiên trình duyệt hoặc bấm “Xóa key đã lưu” sẽ xóa bản lưu tạm.</small>
       <div class="form-actions">
         <button class="danger-button" id="clear-vivibe-key" type="button">Xóa key đã lưu</button>
         <button class="primary-button" type="submit">Lưu key</button>

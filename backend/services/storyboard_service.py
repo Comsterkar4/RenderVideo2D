@@ -9,6 +9,7 @@ from backend.workflows.story_to_video.schemas import (
     CharacterPlan,
     ScenePlan,
     StoryboardPlan,
+    StoryboardReadPlan,
 )
 
 
@@ -77,11 +78,11 @@ def replace_storyboard(
     return persisted
 
 
-def storyboard_from_project(project: Project) -> StoryboardPlan:
+def storyboard_from_project(project: Project) -> StoryboardReadPlan:
     if not project.characters or not project.scenes:
         raise StoryboardStateError("Storyboard has not been generated")
 
-    return StoryboardPlan(
+    return StoryboardReadPlan(
         title=project.title,
         visual_style=VISUAL_STYLE,
         characters=[

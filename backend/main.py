@@ -9,6 +9,7 @@ from backend.api.audio import router as audio_router
 from backend.api.settings import router as settings_router
 from backend.api.projects import router as projects_router
 from backend.api.storyboards import router as storyboards_router
+from backend.api.render import router as render_router
 from backend.config import get_frontend_origins
 
 SERVICE_NAME = "render-video-api"
@@ -46,6 +47,7 @@ def create_app() -> FastAPI:
     application.include_router(images_router)
     application.include_router(settings_router)
     application.include_router(storyboards_router)
+    application.include_router(render_router)
     application.include_router(projects_router)
 
     return application

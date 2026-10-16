@@ -18,12 +18,6 @@ class SpeechProviderResponseError(SpeechProviderError):
     pass
 
 
-@dataclass(frozen=True)
-class SpeechVoice:
-    id: str
-    name: str
-    is_active: bool
-
 
 @dataclass(frozen=True)
 class SpeechSubmission:
@@ -43,7 +37,6 @@ class SpeechJobStatus:
 class SpeechProvider(Protocol):
     name: str
 
-    def list_voices(self) -> tuple[SpeechVoice, ...]: ...
 
     def submit(self, text: str, voice_id: str, speed: float) -> SpeechSubmission: ...
 

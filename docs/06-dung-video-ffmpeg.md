@@ -15,6 +15,10 @@ FFmpeg xử lý:
 - Xuất MP4.
 
 Logic render nằm trong worker/service, không nằm trong route FastAPI.
+## Cài đặt
+
+Service ưu tiên `FFMPEG_BIN`, sau đó tìm `ffmpeg` trong `PATH`. Nếu không có cả hai, dependency `imageio-ffmpeg` cung cấp binary static trong virtualenv.
+
 
 ## Timeline trung gian
 
@@ -55,13 +59,25 @@ Mọi đường dẫn trong timeline là đường dẫn tương đối dưới 
 ```text
 data/projects/<project_id>/
 ├── timeline.json
-├── subtitles/final.srt
+├── subtitles/final.ass
 └── renders/
     ├── preview.mp4
     └── final.mp4
 ```
 
 Preview dùng độ phân giải/bitrate thấp hơn để kiểm tra nhanh. Final chỉ chạy sau khi preview đạt.
+
+## Đã triển khai trong backend
+
+Endpoint `POST /api/projects/<project_id>/render` nhận:
+
+```json
+{"quality": "preview"}
+```
+
+`quality` có thể là `preview` hoặc `final`. Service đo lại thời lượng WAV của từng cảnh, dùng thời lượng đó để kéo dài ảnh pan/zoom, ghép audio theo thứ tự cảnh, dời mốc phụ đề theo offset tích lũy và burn phụ đề ASS karaoke vào MP4. Mỗi dòng hiển thị một hàng, chữ hiện tại sáng dần theo từng từ. Timeline được ghi tại `data/projects/<project_id>/timeline.json`; output nằm trong `renders/preview.mp4` hoặc `renders/final.mp4`.
+
+Asset render được lưu vào SQLite với `kind=render_video`, nên render lại một quality chỉ supersede bản cũ cùng quality. UI hiển thị video và link tải trực tiếp.
 
 ## Test module
 

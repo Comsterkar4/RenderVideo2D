@@ -18,7 +18,7 @@ from backend.services.storyboard_service import (
     replace_storyboard,
     storyboard_from_project,
 )
-from backend.workflows.story_to_video.schemas import StoryboardPlan
+from backend.workflows.story_to_video.schemas import StoryboardPlan, StoryboardReadPlan
 
 router = APIRouter(prefix="/api/projects", tags=["storyboard"])
 DatabaseSession = Annotated[Session, Depends(get_db)]
@@ -75,8 +75,8 @@ def analyze_project(
     return replace_storyboard(session, project, storyboard)
 
 
-@router.get("/{project_id}/storyboard", response_model=StoryboardPlan)
-def get_storyboard(project_id: str, session: DatabaseSession) -> StoryboardPlan:
+@router.get("/{project_id}/storyboard", response_model=StoryboardReadPlan)
+def get_storyboard(project_id: str, session: DatabaseSession) -> StoryboardReadPlan:
     project = require_project(session, project_id)
     try:
         return storyboard_from_project(project)

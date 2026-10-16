@@ -14,15 +14,16 @@ from backend.providers.image.base import ImageGenerationRequest, ImageProvider
 
 IMAGE_GENERATION_LOCK = Lock()
 DEFAULT_NEGATIVE_PROMPT = (
-    "photorealistic, realistic photo, live action, photography, 3d, cgi, "
-    "3d render, plastic, glossy, text, watermark, logo, signature, collage, "
-    "split screen, multiple panels, empty scene, blurry, low quality, "
-    "deformed hands, extra fingers, extra limbs, duplicate person, cropped face"
+    "photorealistic, realistic photo, photograph, live action, 3d, cgi, "
+    "rendered 3d, realistic skin texture, glossy plastic, camera, lens, "
+    "depth of field, text, watermark, logo, signature, collage, split screen, "
+    "multiple panels, blurry, low quality, deformed hands, extra fingers, "
+    "extra limbs, duplicate person, cropped face"
 )
 TWO_D_CARTOON_PROMPT_PREFIX = (
-    "high quality 2D hand-drawn children's storybook animation frame, "
-    "clean expressive line art, cel shading, flat colors, coherent background, "
-    "family-friendly, warm vibrant color palette"
+    "2D cartoon illustration for a children's picture book, hand-drawn "
+    "storybook art, bold clean ink outlines, flat cel shading, simple rounded "
+    "shapes, warm vibrant colors, clearly illustrated not photographic"
 )
 
 
@@ -68,7 +69,7 @@ def generate_scene_image(
         return existing
 
     seed = secrets.randbits(63) if regenerate else stable_scene_seed(project.id, scene.key)
-    positive_prompt = build_positive_prompt(project, scene)
+    positive_prompt = build_positive_prompt(scene)
     negative_prompt = os.getenv("COMFYUI_NEGATIVE_PROMPT", DEFAULT_NEGATIVE_PROMPT)
     generated_request = ImageGenerationRequest(
         prompt=positive_prompt,
@@ -180,19 +181,12 @@ def require_image_generation_state(project: Project) -> None:
         raise ImageGenerationStateError("Project has no scenes")
 
 
-def build_positive_prompt(project: Project, scene: Scene) -> str:
-    character_details = ", ".join(
-        character.prompt_fragment for character in scene.characters
-    )
+def build_positive_prompt(scene: Scene) -> str:
     parts = [
         TWO_D_CARTOON_PROMPT_PREFIX,
         scene.image_prompt,
+        "single coherent scene, one animation frame, clear focal subject, no text",
     ]
-    if character_details:
-        parts.append(f"consistent character design: {character_details}")
-    parts.append(
-        "single coherent scene, one animation frame, clear focal subject, no text"
-    )
     return ". ".join(part.strip().rstrip(".") for part in parts if part.strip()) + "."
 
 
